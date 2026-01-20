@@ -98,7 +98,7 @@ function getCurrencyCode(curr) {
  * @property {number} discount Скидка в рублях
  * @property {string} discountPercent Скидка в процентах
  * @property {string} currency Валюта цены
- * @property {Object.<string, string} properties Свойства продукта
+ * @property {Object.<string, string>} properties Свойства продукта
  */
 
 /**
