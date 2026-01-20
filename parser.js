@@ -122,7 +122,7 @@ function parseProduct() {
     const imageGeneral = section.querySelector('.preview figure img');
     const index = images.findIndex(image => image.full === imageGeneral.src);
     if (index !== 0) 
-        [product.images[0], product.images[index]] = [product.images[index], product.images[0]];
+        [images[0], images[index]] = [images[index], images[0]];
     product.images = images;
     const likeButton = section.querySelector('.preview figure button');
     product.isLiked = likeButton.classList.contains('active');
