@@ -10,7 +10,7 @@
  */
 
 /**
- * Производит парсинг заголовка
+ * Парсит заголовок страницы
  * @returns {MetaType} Информация из заголовка страницы
  */
 function parseHeader() {
@@ -103,14 +103,11 @@ function getCurrencyCode(curr) {
  */
 
 /**
- * Возвращает описание продукта
- * @returns {ProductType}
+ * Парсит изображения товара
+ * @param {HTMLElement} section Секциия с товаром
+ * @returns {PhotoType[]} Изображения
  */
-function parseProduct() {
-  const section = document.querySelector(".product");
-  const id = section.dataset.id;
-  const nameElem = section.querySelector("h1");
-  const name = nameElem.textContent.trim();
+function parseImages(section) {
   const images = Array.from(section.querySelectorAll(".preview nav img")).map(
     (image) => {
       return {
@@ -123,9 +120,16 @@ function parseProduct() {
   const imageGeneral = section.querySelector(".preview figure img");
   const index = images.findIndex((image) => image.full === imageGeneral.src);
   if (index !== 0) [images[0], images[index]] = [images[index], images[0]];
-  const likeButton = section.querySelector(".preview figure button");
-  const isLiked = likeButton.classList.contains("active");
-  const tags = Array.from(section.querySelectorAll(".tags span")).reduce(
+  return images;
+}
+
+/**
+ * Парсит теги
+ * @param {HTMLElement} section Секциия с товаром
+ * @returns {TagsType} Теги
+ */
+function parseTags(section) {
+  return Array.from(section.querySelectorAll(".tags span")).reduce(
     (acc, tag) => {
       const tagText = tag.textContent.trim();
       switch (tag.className) {
@@ -143,6 +147,38 @@ function parseProduct() {
     },
     { category: [], discount: [], label: [] },
   );
+}
+
+/**
+ * Парсит описание товара, properties
+ * @param {HTMLElement} section
+ * @returns {Object.<string, string>}
+ */
+function parseProperties(section) {
+  return Array.from(section.querySelectorAll(".properties li")).reduce(
+    (acc, props) => {
+      const key = props.firstElementChild.textContent.trim();
+      const value = props.lastElementChild.textContent.trim();
+      acc[key] = value;
+      return acc;
+    },
+    {},
+  );
+}
+
+/**
+ * Парсит товар
+ * @returns {ProductType}
+ */
+function parseProduct() {
+  const section = document.querySelector(".product");
+  const id = section.dataset.id;
+  const nameElem = section.querySelector("h1");
+  const name = nameElem.textContent.trim();
+  const images = parseImages(section);
+  const likeButton = section.querySelector(".preview figure button");
+  const isLiked = likeButton.classList.contains("active");
+  const tags = parseTags(section);
   const priceElem = section.querySelector(".price");
   const matchPrice = priceElem.innerHTML.match(
     /([^\s])(\d+\.?\d*)\s*<span>\s*[^\s](\d+\.?\d*)\s*<\/span>/,
@@ -152,14 +188,7 @@ function parseProduct() {
   const currency = matchPrice ? getCurrencyCode(matchPrice[1]) : undefined;
   const discount = oldPrice - price;
   const discountPercent = `${((discount / oldPrice) * 100).toFixed(2)}%`;
-  const properties = Array.from(
-    section.querySelectorAll(".properties li"),
-  ).reduce((acc, props) => {
-    const key = props.firstElementChild.textContent.trim();
-    const value = props.lastElementChild.textContent.trim();
-    acc[key] = value;
-    return acc;
-  }, {});
+  const properties = parseProperties(section);
   const descriptionElem = section.querySelector(".description");
   const description = descriptionElem.innerHTML
     .trim()
@@ -190,7 +219,7 @@ function parseProduct() {
  */
 
 /**
- * Возвращает предложения
+ * Парсит предложения
  * @returns {OfferType[]}
  */
 function parseSuggested() {
@@ -236,30 +265,45 @@ function parseSuggested() {
  */
 
 /**
- * Возвращает отзовы
+ * Парсит рейтинг отзыва
+ * @param {*} article Отзыв
+ */
+function parseRating(article) {
+  return Array.from(article.querySelectorAll(".rating span")).reduce(
+    (acc, elem) => (elem.classList.contains("filled") ? acc + 1 : acc),
+    0,
+  );
+}
+
+/**
+ * Парсит автора отзыва
+ * @param {*} elem Автор
+ * @returns {AuthorType}
+ */
+function parseAuthor(elem) {
+  return Array.from(elem.children).reduce((acc, elem) => {
+    switch (elem.tagName) {
+      case "IMG":
+        acc.avatar = elem.src;
+        break;
+      case "SPAN":
+        acc.name = elem.textContent.trim();
+        break;
+    }
+    return acc;
+  }, {});
+}
+
+/**
+ * Парсит отзывы
  * @returns {ReviewType[]}
  */
 function parseReviews() {
   return Array.from(document.querySelectorAll(".reviews article")).map(
     (article) => {
-      const rating = Array.from(
-        article.querySelectorAll(".rating span"),
-      ).reduce(
-        (acc, elem) => (elem.classList.contains("filled") ? acc + 1 : acc),
-        0,
-      );
+      const rating = parseRating(article);
       const authorElem = article.querySelector(".author");
-      const author = Array.from(authorElem.children).reduce((acc, elem) => {
-        switch (elem.tagName) {
-          case "IMG":
-            acc.avatar = elem.src;
-            break;
-          case "SPAN":
-            acc.name = elem.textContent.trim();
-            break;
-        }
-        return acc;
-      }, {});
+      const author = parseAuthor(authorElem);
       const dateElem = authorElem.querySelector("i");
       const matchDate = dateElem.textContent.match(/(\d{2})\/(\d{2})\/(\d{4})/);
       const date = matchDate
@@ -284,11 +328,11 @@ function parseReviews() {
  * @property {MetaType} meta Мета информация
  * @property {ProductType} product Товар
  * @property {OfferType[]} suggested Предложения
- * @property {ReviewType[]} reviews Отзовы
+ * @property {ReviewType[]} reviews Отзывы
  */
 
 /**
- * Парсит страницу и возвращает полученные данные
+ * Парсит страницу
  * @returns {ParseType}
  */
 function parsePage() {
